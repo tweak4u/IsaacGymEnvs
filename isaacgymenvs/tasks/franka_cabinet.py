@@ -25,6 +25,7 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+import copy
 
 import numpy as np
 import os
@@ -32,7 +33,7 @@ import torch
 
 from isaacgym import gymutil, gymtorch, gymapi
 from isaacgymenvs.utils.torch_jit_utils import to_torch, get_axis_params, tensor_clamp, \
-    tf_vector, tf_combine
+    tf_vector, tf_combine, quat_apply
 from .base.vec_task import VecTask
 
 
@@ -346,6 +347,10 @@ class FrankaCabinet(VecTask):
         self.franka_lfinger_rot = torch.zeros_like(self.franka_local_grasp_rot)
         self.franka_rfinger_rot = torch.zeros_like(self.franka_local_grasp_rot)
 
+        # TODO,
+        # self.hand_pos = torch.zeros_like(self.franka_grasp_pos)
+        # self.hand_rot = torch.zeros_like(self.franka_grasp_rot)
+
     def compute_reward(self, actions):
         self.rew_buf[:], self.reset_buf[:] = compute_franka_reward(
             self.reset_buf, self.progress_buf, self.actions, self.cabinet_dof_pos,
@@ -366,6 +371,26 @@ class FrankaCabinet(VecTask):
         hand_rot = self.rigid_body_states[:, self.hand_handle][:, 3:7]
         drawer_pos = self.rigid_body_states[:, self.drawer_handle][:, 0:3]
         drawer_rot = self.rigid_body_states[:, self.drawer_handle][:, 3:7]
+
+        # TODO,
+        # hand = self.gym.find_actor_rigid_body_handle(self.envs[-1], self.frankas[-1], "panda_link7")
+        # hand_pose = self.gym.get_rigid_transform(self.envs[-1], hand)
+        # hand_pose_inv = hand_pose.inverse()
+        #
+        # # print("franka_local_pose: ", self.franka_local_grasp_pos[-1], self.franka_local_grasp_rot[-1])
+        # # print("hand_pose ", hand_pose.r, hand_pose.p)
+        # # print("hand_pose_inv ", hand_pose_inv.r, hand_pose_inv.p)
+        #
+        # self.hand_pos = copy.deepcopy(hand_pos)
+        # self.hand_pos[-1][0] = hand_pose_inv.p.x
+        # self.hand_pos[-1][1] = hand_pose_inv.p.y
+        # self.hand_pos[-1][2] = hand_pose_inv.p.z
+        #
+        # self.hand_rot = copy.deepcopy(hand_rot)
+        # self.hand_rot[-1][0] = hand_pose_inv.r.x
+        # self.hand_rot[-1][1] = hand_pose_inv.r.y
+        # self.hand_rot[-1][2] = hand_pose_inv.r.z
+        # self.hand_rot[-1][3] = hand_pose_inv.r.w
 
         self.franka_grasp_rot[:], self.franka_grasp_pos[:], self.drawer_grasp_rot[:], self.drawer_grasp_pos[:] = \
             compute_grasp_transforms(hand_rot, hand_pos, self.franka_local_grasp_rot, self.franka_local_grasp_pos,
@@ -479,6 +504,32 @@ class FrankaCabinet(VecTask):
                 self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], px[0], px[1], px[2]], [1, 0, 0])
                 self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], py[0], py[1], py[2]], [0, 1, 0])
                 self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], pz[0], pz[1], pz[2]], [0, 0, 1])
+                #
+                # # TODO
+                # px = (self.hand_pos[i] + quat_apply(self.hand_rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
+                # py = (self.hand_pos[i] + quat_apply(self.hand_rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
+                # pz = (self.hand_pos[i] + quat_apply(self.hand_rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
+                #
+                # p0 = self.hand_pos[i].cpu().numpy()
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], px[0], px[1], px[2]], [0.85, 0.1, 0.1])
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], py[0], py[1], py[2]], [0.1, 0.85, 0.1])
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], pz[0], pz[1], pz[2]], [0.1, 0.1, 0.85])
+                #
+                # # TODO, 2
+                # px = (self.franka_local_grasp_pos[i] + quat_apply(self.franka_local_grasp_rot[i],
+                #                                     to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
+                # py = (self.franka_local_grasp_pos[i] + quat_apply(self.franka_local_grasp_rot[i],
+                #                                     to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
+                # pz = (self.franka_local_grasp_pos[i] + quat_apply(self.franka_local_grasp_rot[i],
+                #                                     to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
+                #
+                # p0 = self.franka_local_grasp_pos[i].cpu().numpy()
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], px[0], px[1], px[2]],
+                #                    [0.85, 0.1, 0.1])
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], py[0], py[1], py[2]],
+                #                    [0.1, 0.85, 0.1])
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], pz[0], pz[1], pz[2]],
+                #                    [0.1, 0.1, 0.85])
 
 #####################################################################
 ###=========================jit functions=========================###
