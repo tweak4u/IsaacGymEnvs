@@ -19,7 +19,7 @@ max_iterations: ''
 #  'physx' or 'flex'
 physics_engine: 'physx'
 # whether to use cpu or gpu pipeline
-pipeline: 'gpu'
+pipeline: 'cpu'
 # device for running physics simulation
 sim_device: 'cuda:0'
 # device to run RL
@@ -59,7 +59,7 @@ headless: False
 
 # set default task and default training config based on task
 defaults:
-  - task: FrankaCabinet
+  - task: Humanoid
   - train: ${task}PPO
   - hydra/job_logging: disabled
   - pbt: no_pbt

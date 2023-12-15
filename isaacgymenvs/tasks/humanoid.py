@@ -33,7 +33,7 @@ import torch
 from isaacgym import gymtorch
 from isaacgym import gymapi
 from isaacgymenvs.utils.torch_jit_utils import scale, unscale, quat_mul, quat_conjugate, quat_from_angle_axis, \
-    to_torch, get_axis_params, torch_rand_float, tensor_clamp, compute_heading_and_up, compute_rot, normalize_angle
+    to_torch, get_axis_params, torch_rand_float, tensor_clamp, compute_heading_and_up, compute_rot, normalize_angle, get_basis_vector
 
 from isaacgymenvs.tasks.base.vec_task import VecTask
 
@@ -152,6 +152,8 @@ class Humanoid(VecTask):
         asset_options = gymapi.AssetOptions()
         asset_options.angular_damping = 0.01
         asset_options.max_angular_velocity = 100.0
+        # asset_options.disable_gravity = True    # TODO
+        # asset_options.fix_base_link = True
         # Note - DOF mode is set in the MJCF file and loaded by Isaac Gym
         asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
         humanoid_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
@@ -243,12 +245,41 @@ class Humanoid(VecTask):
         self.gym.refresh_force_sensor_tensor(self.sim)
 
         self.gym.refresh_dof_force_tensor(self.sim)
+        # torso_rot = self.root_states[:, 3:7]
+        # inv_torso_rot = quat_conjugate(torso_rot)
+        # q_hat = quat_mul(torso_rot, self.inv_start_rot)
+        # basis = get_basis_vector(q_hat, self.basis_vec1)
+        # # print("basis: ", self.basis_vec1)
+
         self.obs_buf[:], self.potentials[:], self.prev_potentials[:], self.up_vec[:], self.heading_vec[:] = compute_humanoid_observations(
             self.obs_buf, self.root_states, self.targets, self.potentials,
             self.inv_start_rot, self.dof_pos, self.dof_vel, self.dof_force_tensor,
             self.dof_limits_lower, self.dof_limits_upper, self.dof_vel_scale,
             self.vec_sensor_tensor, self.actions, self.dt, self.contact_force_scale, self.angular_velocity_scale,
             self.basis_vec0, self.basis_vec1)
+        #
+        # torso_position = self.root_states[:, 0:3]
+        # walk_target_angle = torch.atan2(self.targets[:, 2] - torso_position[:, 2],
+        #                                 self.targets[:, 0] - torso_position[:, 0])
+        #
+        # # print("dof pos min max: ", self.dof_pos.min(), self.dof_pos.max())
+        dof_pos_scaled = unscale(self.dof_pos, self.dof_limits_lower, self.dof_limits_upper)
+        print("dof pos scaled min max: ", dof_pos_scaled.min(), dof_pos_scaled.max())
+        # # print("lower min max ", self.dof_limits_lower.min(), self.dof_limits_lower.max())
+        # # print("upper min max ", self.dof_limits_upper.min(), self.dof_limits_upper.max())
+        #
+        # # print("angle to target: ", self.obs_buf[0, 9])
+        # # print("targets ", self.targets[0])
+        # # print("torso position ", torso_position[0])
+        # # print("walk ", walk_target_angle[0] * (180.0 / torch.pi))
+        #
+        # # print("inv start ", self.inv_start_rot[0])
+        # # print("q hat ", q_hat[0])
+        # # print("basis ", basis[0])
+        # # print("upvec ", self.up_vec[0])
+        # # print("potentials ", self.potentials.shape)
+        # # print("targets ", self.targets)
+        # # print("torso_z ", self.obs_buf[0][0])
 
     def reset_idx(self, env_ids):
         # Randomization can happen only at reset time, since it can reset actor positions on GPU
@@ -279,7 +310,7 @@ class Humanoid(VecTask):
         self.reset_buf[env_ids] = 0
 
     def pre_physics_step(self, actions):
-        self.actions = actions.to(self.device).clone()
+        self.actions = actions.to(self.device).clone()  #* 0.0    # TODO
         forces = self.actions * self.motor_efforts.unsqueeze(0) * self.power_scale
         force_tensor = gymtorch.unwrap_tensor(forces)
         self.gym.set_dof_actuation_force_tensor(self.sim, force_tensor)
