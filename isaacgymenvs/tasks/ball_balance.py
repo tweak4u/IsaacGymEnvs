@@ -274,7 +274,6 @@ class BallBalance(VecTask):
         self.ball_radius = 0.1
         ball_options = gymapi.AssetOptions()
         ball_options.density = 200
-        # push test...
         # ball_options.disable_gravity = True
         # ball_options.fix_base_link = True
         ball_asset = self.gym.create_sphere(self.sim, self.ball_radius, ball_options)
