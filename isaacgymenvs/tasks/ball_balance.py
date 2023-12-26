@@ -240,7 +240,7 @@ class BallBalance(VecTask):
         asset_file = os.path.basename(asset_path)
 
         bbot_options = gymapi.AssetOptions()
-        bbot_options.fix_base_link = False
+        # bbot_options.fix_base_link = True
         bbot_options.slices_per_cylinder = 40
         bbot_asset = self.gym.load_asset(self.sim, asset_root, asset_file, bbot_options)
 
@@ -274,6 +274,8 @@ class BallBalance(VecTask):
         self.ball_radius = 0.1
         ball_options = gymapi.AssetOptions()
         ball_options.density = 200
+        # ball_options.disable_gravity = True
+        # ball_options.fix_base_link = True
         ball_asset = self.gym.create_sphere(self.sim, self.ball_radius, ball_options)
 
         self.envs = []
